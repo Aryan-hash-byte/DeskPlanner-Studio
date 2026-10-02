@@ -1,0 +1,29 @@
+# React
+todo-app/node_modules/
+todo-app/dist/
+todo-app/build/
+
+# Python
+todo-app/venv/
+todo-backend-django/__pycache__/
+todo-backend-django/*/__pycache__/
+todo-backend-django/venv/
+todo-backend-django/.venv/
+todo-backend-django/env/
+
+# Django
+todo-backend-django/db.sqlite3
+todo-backend-django/*.log
+todo-backend-django/logs/
+
+# Environment variables
+.env
+.env.*
+todo-app/.env
+todo-backend-django/.env
+
+# VS Code
+.vscode/
+
+# Python compiled files
+*.pyc
