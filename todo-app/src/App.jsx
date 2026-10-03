@@ -2,6 +2,16 @@ import React, { useState, useEffect } from 'react';
 import TodoItem from './TodoItem';
 import './App.css';
 
+// Reads a named cookie value from document.cookie.
+// Used to extract the csrftoken Django sets, which must be sent as the
+// X-CSRFToken header on every POST / PATCH / DELETE request.
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return null;
+}
+
 function App() {
   const [currentUser, setCurrentUser] = useState(localStorage.getItem('activeUser') || '');
   const [currentUsername, setCurrentUsername] = useState(localStorage.getItem('activeUsername') || '');
@@ -34,11 +44,10 @@ function App() {
         // Send a GET request across the bridge to load your tasks
         const response = await fetch('http://localhost:8000/api/tasks/', {
           method: 'GET',
-       headers: {
-  'Content-Type': 'application/json',
-  'X-User-Profile':
-    localStorage.getItem('activeUsername') || currentUsername
-}
+          credentials: 'include',        // send sessionid cookie so Django knows who is logged in
+          headers: {
+            'Content-Type': 'application/json',
+          }
         });
 
         const data = await response.json();
@@ -72,10 +81,10 @@ function App() {
   try {
     const response = await fetch('http://localhost:8000/api/tasks/', {
       method: 'POST',
+      credentials: 'include',            // send sessionid cookie
       headers: {
         'Content-Type': 'application/json',
-        'X-User-Profile':
-          localStorage.getItem('activeUsername') || currentUser
+        'X-CSRFToken': getCookie('csrftoken'),  // required by SessionAuthentication
       },
       body: JSON.stringify({
         text: input,
@@ -112,10 +121,10 @@ function App() {
     try {
       const response = await fetch(`http://localhost:8000/api/tasks/${taskId}/`, {
         method: 'PATCH',
+        credentials: 'include',            // send sessionid cookie
         headers: {
           'Content-Type': 'application/json',
-          'X-User-Profile':
-  localStorage.getItem('activeUsername') || currentUsername
+          'X-CSRFToken': getCookie('csrftoken'),  // required by SessionAuthentication
         },
         body: JSON.stringify({
           completed: !currentStatus // Flips True to False or vice versa
@@ -142,10 +151,11 @@ else {
     try {
       // 🛑 ENSURE THIS EXACT URL HAS BOTH THE ID AND A TRAILING SLASH AT THE END:
       const response = await fetch(`http://localhost:8000/api/tasks/${taskId}/`, {
-        method: 'DELETE', // 👈 Must use uppercase DELETE
+        method: 'DELETE',
+        credentials: 'include',            // send sessionid cookie
         headers: {
           'Content-Type': 'application/json',
-          'X-User-Profile': localStorage.getItem('activeUsername') || currentUser
+          'X-CSRFToken': getCookie('csrftoken'),  // required by SessionAuthentication
         }
       });
 
@@ -221,6 +231,7 @@ else {
       try {
         const response = await fetch('http://localhost:8000/api/login/', {
           method: 'POST',
+          credentials: 'include',          // store the sessionid cookie Django sends back
           headers: {
             'Content-Type': 'application/json',
           },
@@ -259,7 +270,22 @@ else {
     setUsernameInput('');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Destroy the server-side session first so the sessionid cookie is invalidated.
+    // The try/catch means logout always completes locally even if the network call fails.
+    try {
+      await fetch('http://localhost:8000/api/logout/', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken'),
+        },
+      });
+    } catch (error) {
+      console.error('Logout network error:', error);
+    }
+    // Clear display state — localStorage here is UI-only, not proof of authentication
     localStorage.removeItem('activeUser');
     localStorage.removeItem('activeUsername');
     setCurrentUser('');

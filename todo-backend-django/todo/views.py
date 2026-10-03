@@ -1,8 +1,9 @@
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import authenticate, login, logout
+from django.middleware.csrf import get_token
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.conf import settings
@@ -68,6 +69,8 @@ def login_user(request):
     user = authenticate(username=username_input, password=password)
     
     if user is not None:
+        login(request, user)
+        get_token(request)  # Creates server-side session + sends Set-Cookie: sessionid
         # Success: Return the clean username to update the React banner
         return Response({
             "message": "Login successful!",
@@ -85,22 +88,13 @@ def logout_user(request):
 
 # 4. TASK MANAGER (GET ALL OWNER ENTRIES / SUBMIT NEW ENTRY)
 @api_view(['GET', 'POST', 'PATCH', 'DELETE'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def manage_tasks(request, task_id=None):
 
-    
-    username = request.headers.get('X-User-Profile') or request.data.get('username')
-    
-    if not username:
-        return Response({"error": "User identity mapping is missing."}, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        if '@' in username:
-            user = User.objects.get(email=username)
-        else:
-            user = User.objects.get(username=username)
-    except User.DoesNotExist:
-        return Response({"error": "User profile not found in ledger."}, status=status.HTTP_404_NOT_FOUND)
+    # User identity comes from the verified server-side session.
+    # request.user is populated by SessionAuthentication using the
+    # sessionid cookie — no client-supplied header is trusted.
+    user = request.user
 
     # 1. Handle dynamic PATCH updates for checkboxes instantly
     if request.method == 'PATCH' and task_id:

@@ -128,6 +128,31 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# -------------------------------------------------------------------
+# DJANGO REST FRAMEWORK — Session-based authentication
+# SessionAuthentication reads the sessionid cookie set by login_user.
+# IsAuthenticated blocks unauthenticated access globally; views that
+# must be public (register, login) already carry @permission_classes([AllowAny]).
+# -------------------------------------------------------------------
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}
+
+# -------------------------------------------------------------------
+# CSRF — trust the React dev server origin for cross-origin requests.
+# Required in Django 4.0+ : the Origin header must match an entry here
+# for POST / PATCH / DELETE to pass CSRF validation.
+# -------------------------------------------------------------------
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:5173',
+]
+
 # Allow your local React app to communicate with Python server endpoints
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
@@ -200,7 +225,7 @@ LOGGING = {
 
 from corsheaders.defaults import default_headers
 
-CORS_ALLOW_HEADERS = list(default_headers) + [
-    'x-user-profile',  # Tells Django to allow our custom React identity header!
-]
+# x-user-profile header has been removed — user identity now comes from
+# the session cookie (SessionAuthentication), not a client-supplied header.
+CORS_ALLOW_HEADERS = list(default_headers)
 
